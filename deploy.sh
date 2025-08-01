@@ -40,7 +40,8 @@ parse_meta() {
 
 download_script() {
     local recipe_name="$1"
-    local temp_file=$(mktemp)
+    local temp_file
+    temp_file=$(mktemp)
     local local_recipe="$HOME/.minideploy/${recipe_name}.sh"
     # First check for local recipe in $HOME/.minideploy
     if [[ -f "$local_recipe" ]]; then
@@ -61,8 +62,10 @@ download_script() {
 
 display_metadata() {
     local file="$1"
-    local metadata=$(parse_meta "$file")
+    local metadata
+    metadata=$(parse_meta "$file")
     if [[ -n "$metadata" ]]; then
+        local name description
         eval "$metadata"
         echo -e "\033[1;34m📦 $name\033[0m"
         echo -e "\033[1;34m📄 $description\033[0m"
@@ -91,8 +94,9 @@ parse_json_output() {
             brace_count=1
 
             # Count braces in current line
-            local line_open=$(echo "$json_content" | tr -cd '{' | wc -c)
-            local line_close=$(echo "$json_content" | tr -cd '}' | wc -c)
+            local line_open line_close
+            line_open=$(echo "$json_content" | tr -cd '{' | wc -c)
+            line_close=$(echo "$json_content" | tr -cd '}' | wc -c)
             brace_count=$((line_open - line_close))
 
             # If brace count reaches 0, we have complete JSON on one line
@@ -102,8 +106,9 @@ parse_json_output() {
         elif [[ "$in_json" == true ]]; then
             json_content="$json_content"$'\n'"$line"
             # Count braces to detect end of JSON
-            local line_open=$(echo "$line" | tr -cd '{' | wc -c)
-            local line_close=$(echo "$line" | tr -cd '}' | wc -c)
+            local line_open line_close
+            line_open=$(echo "$line" | tr -cd '{' | wc -c)
+            line_close=$(echo "$line" | tr -cd '}' | wc -c)
             brace_count=$((brace_count + line_open - line_close))
 
             # If brace count reaches 0, we've found the end of JSON
@@ -116,8 +121,9 @@ parse_json_output() {
     if [[ -n "$json_content" && "$in_json" == true ]]; then
         # Validate JSON and extract fields using jq
         if echo "$json_content" | jq . >/dev/null 2>&1; then
-            local status=$(echo "$json_content" | jq -r '.status // empty')
-            local info=$(echo "$json_content" | jq -r '.info // empty')
+            local status info
+            status=$(echo "$json_content" | jq -r '.status // empty')
+            info=$(echo "$json_content" | jq -r '.info // empty')
 
             if [[ "$status" == "success" ]]; then
                 echo -e "\033[32m✓ $info\033[0m"
@@ -143,11 +149,12 @@ execute_script() {
     local output
 
     if [[ -n "$host" && -n "$password" ]]; then
-        local host_info=$(parse_host_info "$host")
-        local user=$(echo "$host_info" | cut -d'@' -f1)
-        local host_port=$(echo "$host_info" | cut -d'@' -f2)
-        local host=$(echo "$host_port" | cut -d':' -f1)
-        local port=$(echo "$host_port" | cut -d':' -f2)
+        local host_info user host_port host port
+        host_info=$(parse_host_info "$host")
+        user=$(echo "$host_info" | cut -d'@' -f1)
+        host_port=$(echo "$host_info" | cut -d'@' -f2)
+        host=$(echo "$host_port" | cut -d':' -f1)
+        port=$(echo "$host_port" | cut -d':' -f2)
 
         output=$(sshpass -p "$password" ssh -o StrictHostKeyChecking=no -p "$port" "$user@$host" 'bash -s' < "$file" 2>&1)
     else
@@ -182,9 +189,7 @@ main() {
     fi
 
     local temp_file
-    temp_file=$(download_script "$recipe_name")
-
-    if [[ $? -ne 0 ]]; then
+    if ! temp_file=$(download_script "$recipe_name"); then
         exit 1
     fi
 
@@ -195,4 +200,3 @@ main() {
 }
 
 main "$@"
-
